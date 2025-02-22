@@ -11,50 +11,83 @@ const ViewTheoryCO = () => {
     category: '',
     courseTitle: '',
   });
-  const [courseTitle, setCourseTitle] = useState('');
-  const [courseTitles, setcourseTitles] = useState([]);
+  const [courseTitles, setCourseTitles] = useState([]);
   const [courseOutcomes, setCourseOutcomes] = useState(null);
-  //const [rubricMapping, setRubricMapping] = useState([]);
-  const [mappingView, setMappingView] = useState(null);
+  const [editingCO, setEditingCO] = useState(null);
+  const [editedDesc, setEditedDesc] = useState('');
 
   useEffect(() => {
-    console.log(filters);
     if (filters.regulation && filters.semester && filters.category) {
-      axios
-        .get(`${API_BASE_URL}/api/courses/by-regulation-semester`, { params: filters })
-        .then((response) => {
-          console.log('naveen');
-          console.log(response.data);
-          setcourseTitles(response.data)
-          console.log('naveen smile :)');
-        })
-        .catch(() => setcourseTitles([]));
+      axios.get(`${API_BASE_URL}/api/courses/by-regulation-semester`, { params: filters })
+        .then((response) => setCourseTitles(response.data))
+        .catch(() => setCourseTitles([]));
     }
-    console.log('naveen hi');
   }, [filters]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    console.log(name, value);
     setFilters({ ...filters, [name]: value });
   };
 
   const fetchCourseOutcomes = () => {
-    console.log('hello world');
     if (!filters.regulation || !filters.semester || !filters.category || !filters.courseTitle) {
       setCourseOutcomes(null);
       return;
     }
-    axios
-      .get(`${API_BASE_URL}/api/course-outcomes/fetch`, { params: filters })
-      .then((response) => {
-        console.log(response.data);
-        setCourseOutcomes(response.data)})
-      .catch((error) => {
-        console.error("Error fetching course outcomes:", error);
-        setCourseOutcomes(null);
-      });
+    axios.get(`${API_BASE_URL}/api/course-outcomes/fetch`, { params: filters })
+      .then((response) => setCourseOutcomes(response.data || {}))
+      .catch(() => setCourseOutcomes(null));
+  };
+
+  const handleEdit = (co, desc) => {
+    setEditingCO(co);
+    setEditedDesc(desc);
 };
+
+const handleSave = async (co, e) => {
+    e.preventDefault();
+    try {
+        await axios.put(`${API_BASE_URL}/api/course-outcomes/update`, {
+            co,
+            description: editedDesc,
+            filters,
+        });
+
+        setCourseOutcomes((prev) => {
+            if (!prev) return prev;
+            return { ...prev, [co]: editedDesc };
+        });
+
+        alert('Course outcome updated successfully');
+        setEditingCO(null);
+    } catch (error) {
+        alert('Error updating course outcome');
+    }
+};
+
+const handleCancel = (co, originalDesc) => {
+    setEditingCO(null);
+    setEditedDesc(originalDesc);
+};
+
+  const handleDelete = async (co, e) => {
+    e.preventDefault();
+    try {
+      await axios.delete(`${API_BASE_URL}/api/course-outcomes/delete`, {
+        params: { co, ...filters }
+      })      
+
+      setCourseOutcomes((prev) => {
+        const updated = { ...prev };
+        delete updated[co];
+        return updated;
+      });
+
+      alert('Course outcome deleted successfully');
+    } catch (error) {
+      alert('Error deleting course outcome');
+    }
+  };
 
   return (
     <div>
@@ -83,84 +116,75 @@ const ViewTheoryCO = () => {
             <label>Category</label>
             <select name="category" value={filters.category} onChange={handleFilterChange}>
               <option value="">Select Category</option>
-              <option value="HSMC">HSMC</option>
-              <option value="PCC">PCC</option>
-              <option value="MC">MC</option>
-              <option value="ESC">ESC</option>
-              <option value="PROJ">PROJ</option>
-              <option value="BSC">BSC</option>
-              <option value="OEC">OEC</option>
-              <option value="PEC">PEC</option>
+              {["HSMC", "PCC", "MC", "ESC", "PROJ"].map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
           </div>
           <div className="input-field">
             <label>Course Title</label>
             <select name="courseTitle" value={filters.courseTitle} onChange={handleFilterChange}>
               <option value="">Select Course Title</option>
-              {courseTitles.map((course) => {
-                if(filters.category === course.category){
-                  return <option key={course.courseCode} value={course.courseTitle}>{course.courseTitle}</option>
-                }
-                return null;
-              })}
+              {courseTitles.map((course) => (
+                filters.category === course.category && (
+                  <option key={course.courseCode} value={course.courseTitle}>{course.courseTitle}</option>
+                )
+              ))}
             </select>
           </div>
         </div>
         <button type="button" onClick={fetchCourseOutcomes} className="submit-button"><b>Fetch Course Outcomes</b></button>
-
-      <h3>Course Outcomes</h3>
-      <hr />
-      {courseOutcomes ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Course Outcome</th>
-              <th>Description</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(courseOutcomes)
-              .filter(([co]) => co !== '_id') // Exclude _id before mapping
-              .map(([co, desc]) => (
-                <tr key={co}>
-                  <td>{co}</td>
-                  <td>{desc}</td>
-                  <td>
-                    <button className="edit-button">Edit</button>
-                    <button className="delete-button">Delete</button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No outcomes for the selected criteria</p>
-      )}
-      <h3>Rubric Mapping and Excel Generation</h3><hr />
-      <div className="rubric-actions">
-        <button onClick={() => setMappingView('mapping')}>Go to rubric mapping</button>
-        <button onClick={() => setMappingView('upload')}>Go to excel upload</button>
+        <h3>Course Outcomes</h3>
+        <hr />
+        {courseOutcomes ? (
+          <div className="table-responsive mt-4">
+          <table className="table table-striped">
+              <thead>
+                  <tr>
+                      <th>Course Outcome</th>
+                      <th>Description</th>
+                      <th>Action</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {Object.entries(courseOutcomes).filter(([co]) => co !== '_id').map(([co, desc]) => (
+                      <tr key={co}>
+                          <td>{co}</td>
+                          <td>
+                              {editingCO === co ? (
+                                  <input
+                                      type="text"
+                                      value={editedDesc}
+                                      onChange={(e) => setEditedDesc(e.target.value)}
+                                  />
+                              ) : (
+                                  desc
+                              )}
+                          </td>
+                          <td>
+                              {editingCO === co ? (
+                                  <>
+                                      <button className="edit-button" onClick={(e) => handleSave(co, e)}>Save</button>
+                                      <button className="edit-button" onClick={() => handleCancel(co, desc)}>Cancel</button>
+                                  </>
+                              ) : (
+                                  <>
+                                      <button className="edit-button" onClick={() => handleEdit(co, desc)}>Edit</button>
+                                      <button className="delete-button" onClick={(e) => handleDelete(co, e)}>Delete</button>
+                                  </>
+                              )}
+                          </td>
+                      </tr>
+                  ))}
+              </tbody>
+          </table>
       </div>
-
-      {mappingView === 'mapping' && (
-        <div className="rubric-mapping">
-          <input type="text" placeholder="Enter comma-separated COs (e.g., CO1, CO2)" />
-          <input type="number" placeholder="Total Marks" />
-          <button>Add Rubric</button>
-        </div>
-      )}
-
-      {mappingView === 'upload' && (
-        <div className="excel-upload">
-          <h3>Upload Excel File</h3>
-          <input type="file" />
-          <button>Display uploaded content</button>
-        </div>
-      )}
-      </form>
-    </div>
-  );
+  ) : (
+      <p>No outcomes for the selected criteria</p>
+  )}
+</form>
+</div>
+);
 };
 
 export default ViewTheoryCO;

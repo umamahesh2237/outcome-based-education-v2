@@ -23,7 +23,6 @@ exports.addCourseOutcomes = async (req, res) => {
 
 // Controller to fetch course outcomes based on selected filters
 exports.fetchCourseOutcomes = async (req, res) => {
-  console.log('E');
   const { regulation, semester, category, courseTitle } = req.query;
   const subjectTitle = courseTitle;
   if (!regulation || !semester || !category || !subjectTitle) {
