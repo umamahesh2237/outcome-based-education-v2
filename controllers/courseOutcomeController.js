@@ -40,3 +40,26 @@ exports.fetchCourseOutcomes = async (req, res) => {
     res.status(500).send('Error fetching course outcomes');
   }
 };
+
+exports.updateCourseOutcomes = async (req, res) => {
+  console.log("hell")
+  const { courseOutcomes, filters } = req.body;
+  const { regulation, semester, category, courseTitle } = filters;
+  const subjectTitle = courseTitle;
+  if (!regulation || !semester || !category || !subjectTitle) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  console.log("hello");
+  try {
+    const courseOutcome = await CourseOutcome.findOneAndUpdate(
+      { regulation, semester, category, subjectTitle },
+      { $set: { outcomes: courseOutcomes } },
+      { new: true }
+    );
+    console.log("Done");
+    res.status(200).json(courseOutcome.outcomes);
+  } catch (err) {
+    console.error('Error updating course outcomes:', err);
+    res.status(500).send('Error updating course outcomes');
+  }
+};

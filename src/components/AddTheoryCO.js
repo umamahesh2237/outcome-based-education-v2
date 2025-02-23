@@ -79,7 +79,7 @@ const AddTheoryCO = () => {
   return (
     <div>
       <form onSubmit={handleSubmit} className="regulation-form">
-        <h3>Choose the below filters for course:</h3>
+        <h5>Choose the below filters for course:</h5>
         <hr />
         <div className="regulation-inputs">
           <div className="input-field">
@@ -137,7 +137,7 @@ const AddTheoryCO = () => {
             <input type="text" value={courseCode} placeholder="Course Code" readOnly />
           </div>
         </div>
-        <h3>Enter course outcomes:</h3>
+        <h5>Enter course outcomes:</h5>
         <hr />
         {Object.keys(courseOutcomes).map((co, index) => (
           <div key={index} className="input-field">

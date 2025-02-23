@@ -11,6 +11,7 @@ const ViewTheoryCO = () => {
     category: '',
     courseTitle: '',
   });
+  const[tempCO, setTempCO]= useState({});
   const [courseTitles, setCourseTitles] = useState([]);
   const [courseOutcomes, setCourseOutcomes] = useState(null);
   const [editingCO, setEditingCO] = useState(null);
@@ -35,29 +36,27 @@ const ViewTheoryCO = () => {
       return;
     }
     axios.get(`${API_BASE_URL}/api/course-outcomes/fetch`, { params: filters })
-      .then((response) => setCourseOutcomes(response.data || {}))
+      .then((response) => {
+        setTempCO(response.data);
+        setCourseOutcomes(response.data);
+      })
       .catch(() => setCourseOutcomes(null));
   };
 
   const handleEdit = (co, desc) => {
     setEditingCO(co);
     setEditedDesc(desc);
-};
+  };
 
 const handleSave = async (co, e) => {
     e.preventDefault();
+    console.log(courseOutcomes)
     try {
-        await axios.put(`${API_BASE_URL}/api/course-outcomes/update`, {
-            co,
-            description: editedDesc,
+        await axios.post(`${API_BASE_URL}/api/course-outcomes/update`, {
+            courseOutcomes,
             filters,
         });
-
-        setCourseOutcomes((prev) => {
-            if (!prev) return prev;
-            return { ...prev, [co]: editedDesc };
-        });
-
+        setTempCO(courseOutcomes);
         alert('Course outcome updated successfully');
         setEditingCO(null);
     } catch (error) {
@@ -65,40 +64,41 @@ const handleSave = async (co, e) => {
     }
 };
 
-const handleCancel = (co, originalDesc) => {
+const handleCancel = (co) => {
     setEditingCO(null);
-    setEditedDesc(originalDesc);
+    setCourseOutcomes(tempCO);
 };
 
   const handleDelete = async (co, e) => {
     e.preventDefault();
+    courseOutcomes[co] = '';
     try {
-      await axios.delete(`${API_BASE_URL}/api/course-outcomes/delete`, {
-        params: { co, ...filters }
-      })      
-
-      setCourseOutcomes((prev) => {
-        const updated = { ...prev };
-        delete updated[co];
-        return updated;
+      await axios.post(`${API_BASE_URL}/api/course-outcomes/update`, {
+          courseOutcomes,
+          filters,
       });
 
+      setTempCO(courseOutcomes); 
+      setCourseOutcomes(null);
+      setCourseOutcomes(courseOutcomes);
+
       alert('Course outcome deleted successfully');
-    } catch (error) {
-      alert('Error deleting course outcome');
-    }
+      setEditingCO(null);
+  } catch (error) {
+      alert('Error updating course outcome');
+  }
   };
 
   return (
     <div>
       <form className="regulation-form">
-        <h3>Course Outcome Viewer</h3>
+        <h5>Choose filters to fetch the course outcomes:</h5>
         <hr />
         <div className="regulation-inputs">
           <div className="input-field">
             <label>Regulation</label>
             <select name="regulation" value={filters.regulation} onChange={handleFilterChange}>
-              <option value="">Select Regulation</option>
+              <option value="">Select</option>
               <option value="AR20">AR20</option>
               <option value="AR22">AR22</option>
             </select>
@@ -106,7 +106,7 @@ const handleCancel = (co, originalDesc) => {
           <div className="input-field">
             <label>Semester</label>
             <select name="semester" value={filters.semester} onChange={handleFilterChange}>
-              <option value="">Select Semester</option>
+              <option value="">Select</option>
               {["I-I", "I-II", "II-I", "II-II", "III-I", "III-II", "IV-I", "IV-II"].map((sem) => (
                 <option key={sem} value={sem}>{sem}</option>
               ))}
@@ -115,7 +115,7 @@ const handleCancel = (co, originalDesc) => {
           <div className="input-field">
             <label>Category</label>
             <select name="category" value={filters.category} onChange={handleFilterChange}>
-              <option value="">Select Category</option>
+              <option value="">Select</option>
               {["HSMC", "PCC", "MC", "ESC", "PROJ"].map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
@@ -124,7 +124,7 @@ const handleCancel = (co, originalDesc) => {
           <div className="input-field">
             <label>Course Title</label>
             <select name="courseTitle" value={filters.courseTitle} onChange={handleFilterChange}>
-              <option value="">Select Course Title</option>
+              <option value="">Select</option>
               {courseTitles.map((course) => (
                 filters.category === course.category && (
                   <option key={course.courseCode} value={course.courseTitle}>{course.courseTitle}</option>
@@ -134,8 +134,8 @@ const handleCancel = (co, originalDesc) => {
           </div>
         </div>
         <button type="button" onClick={fetchCourseOutcomes} className="submit-button"><b>Fetch Course Outcomes</b></button>
-        <h3>Course Outcomes</h3>
-        <hr />
+        <h5>View and modify course outcomes:</h5>
+        <hr /> 
         {courseOutcomes ? (
           <div className="table-responsive mt-4">
           <table className="table table-striped">
@@ -147,34 +147,38 @@ const handleCancel = (co, originalDesc) => {
                   </tr>
               </thead>
               <tbody>
-                  {Object.entries(courseOutcomes).filter(([co]) => co !== '_id').map(([co, desc]) => (
-                      <tr key={co}>
-                          <td>{co}</td>
-                          <td>
-                              {editingCO === co ? (
-                                  <input
-                                      type="text"
-                                      value={editedDesc}
-                                      onChange={(e) => setEditedDesc(e.target.value)}
-                                  />
-                              ) : (
-                                  desc
-                              )}
-                          </td>
-                          <td>
-                              {editingCO === co ? (
-                                  <>
-                                      <button className="edit-button" onClick={(e) => handleSave(co, e)}>Save</button>
-                                      <button className="edit-button" onClick={() => handleCancel(co, desc)}>Cancel</button>
-                                  </>
-                              ) : (
-                                  <>
-                                      <button className="edit-button" onClick={() => handleEdit(co, desc)}>Edit</button>
-                                      <button className="delete-button" onClick={(e) => handleDelete(co, e)}>Delete</button>
-                                  </>
-                              )}
-                          </td>
-                      </tr>
+                {Object.entries(courseOutcomes)
+                  .filter(([co, desc]) => co !== '_id' && desc.trim() !== '')
+                  .map(([co, desc]) => (
+                    <tr key={co}>
+                      <td>{co}</td>
+                      <td>
+                       { editingCO === co ? (<input
+                          type="text"
+                          value={desc}
+                          onChange={(e) => setCourseOutcomes((prev) => ({
+                            ...prev,
+                            [co]: e.target.value,
+                          }))}
+                        />)
+                        : desc}
+                      </td>
+                      <td>
+                            {/* <button type = 'button'  className="save-button">{saveButton?"Save":"Edit"}</button>
+                            <button type = 'button' className="cancel-button">Cancel</button> */}
+                            {editingCO === co ? (
+                              <>
+                                <button type="button" className="save-button" onClick={(e) => handleSave(co, e)}>Save</button>
+                                <button type="button" className="cancel-button" onClick={(e) => handleCancel(co)}>Cancel</button>
+                              </>
+                            ) : (
+                              <>
+                              <button type="button" className="edit-button" onClick={() => handleEdit(co, desc)}>Edit</button>
+                              <button type="button" className="delete-button" onClick={(e) => handleDelete(co, e)}>Delete</button>
+                              </>
+                            )}
+                      </td>
+                    </tr>
                   ))}
               </tbody>
           </table>

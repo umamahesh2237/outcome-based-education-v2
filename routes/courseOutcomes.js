@@ -14,5 +14,6 @@ router.post('/add', async (req, res) => {
 
 // Fetch course outcomes
 router.get('/fetch', courseOutcomeController.fetchCourseOutcomes);
+router.post('/update', courseOutcomeController.updateCourseOutcomes);
 
 module.exports = router;
