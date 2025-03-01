@@ -34,10 +34,8 @@ exports.getCoursesByRegulationAndSemester = async (req, res) => {
     if (courses.length === 0) {
       return res.status(404).json({ message: 'No courses found' });
     }
-    console.log(courses);
     res.status(200).json(courses);
   } catch (err) {
-    console.log("Naveen is checking");
     res.status(500).json({ message: 'Failed to fetch courses', error: err.message });
   }
 };

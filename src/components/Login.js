@@ -52,7 +52,15 @@ const Login = () => {
     }
   };  
   return (
-    <div className="auth-container">
+    <div
+      className="auth-container"
+      style={{
+        backgroundImage: "url('/clg_background.jpg')",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+      }}
+    >
       <div className="auth-card">
         <form onSubmit={handleSubmit} className="auth-form">
           <h2>GCET Outcome-Based Education Platform</h2>

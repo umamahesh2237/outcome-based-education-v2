@@ -1,4 +1,3 @@
-// rubricMapping.js (Routes)
 const express = require('express');
 const router = express.Router();
 const rubricMappingController = require('../controllers/rubricMappingController');

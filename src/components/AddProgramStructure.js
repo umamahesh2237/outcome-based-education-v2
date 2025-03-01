@@ -143,7 +143,7 @@ function AddProgramStructure() {
         <form onSubmit={handleSubmit} className="regulation-form">
           <h5>Fetch the program structure (Regulation and Semester-Wise):</h5>
           <hr />
-          <div className="filters regulation-inputs">
+          <div className="regulation-inputs">
             <div className="input-field">
               <label>Batch</label>
               <select onChange={(e) => setSelectedBatch(e.target.value)} value={selectedBatch} className="form-input">
@@ -187,8 +187,11 @@ function AddProgramStructure() {
                 <option value="AR22">AR22</option>
               </select>
             </div>
+            
           </div>
-  
+          <button type="submit" className="submit-button">
+            <b>Fetch Program Structure</b>
+            </button>
           {message && (
             <p
               style={{
@@ -201,9 +204,7 @@ function AddProgramStructure() {
           )}
           {isLoading && <p style={{ fontWeight: 'bold' }}>Loading...</p>}
   
-          <button type="submit" className="submit-button">
-            <b>Fetch Program Structure</b>
-          </button>
+          
   
           {programStructures.length > 0 && (
             <div className="table-responsive mt-4">

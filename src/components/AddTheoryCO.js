@@ -77,78 +77,82 @@ const AddTheoryCO = () => {
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} className="regulation-form">
-        <h5>Choose the below filters for course:</h5>
-        <hr />
-        <div className="regulation-inputs">
-          <div className="input-field">
-            <label>Category</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} required>
-              <option value="">Select Category</option>
-              <option value="HSMC">HSMC</option>
-              <option value="PCC">PCC</option>
-              <option value="MC">MC</option>
-              <option value="ESC">ESC</option>
-              <option value="PROJ">PROJ</option>
-              <option value="BSC">BSC</option>
-              <option value="OEC">OEC</option>
-              <option value="PEC">PEC</option>
-            </select>
-          </div>
-          <div className="input-field">
-            <label>Regulation</label>
-            <select value={regulation} onChange={(e) => setRegulation(e.target.value)} required>
-              <option value="">Select Regulation</option>
-              {regulations.map((reg) => (
-                <option key={reg._id} value={reg.regulation}>{reg.regulation}</option>
-              ))}
-            </select>
-          </div>
-          <div className="input-field">
-            <label>Semester</label>
-            <select value={semester} onChange={(e) => setSemester(e.target.value)} required>
-              <option value="">Select Semester</option>
-              <option value="I-I">I-I</option>
-              <option value="I-II">I-II</option>
-              <option value="II-I">II-I</option>
-              <option value="II-II">II-II</option>
-              <option value="III-I">III-I</option>
-              <option value="III-II">III-II</option>
-              <option value="IV-I">IV-I</option>
-              <option value="IV-II">IV-II</option>
-            </select>
-          </div>
-          <div className="input-field">
-            <label>Course Title</label>
-            <select value={courseTitle} onChange={(e) => {
-              setCourseTitle(e.target.value)}} required>
-              <option value="">Select Course Title</option>
-              {courseTitles.map((course) => {
-                if(category === course.category){
-                  return <option key={course.courseCode} value={course.courseTitle}>{course.courseTitle}</option>
-                }
-                return null;
-              })}
-            </select>
-          </div>
-          <div className="input-field">
-            <label>Course Code</label>
-            <input type="text" value={courseCode} placeholder="Course Code" readOnly />
-          </div>
+    <form onSubmit={handleSubmit}>
+    <div className="regulation-form"> {/* Opening of the first regulation-form */}
+      <h5>Choose the below filters for course:</h5>
+      <hr />
+      <div className="regulation-inputs">
+        <div className="input-field">
+          <label>Category</label>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+            <option value="">Select Category</option>
+            <option value="HSMC">HSMC</option>
+            <option value="PCC">PCC</option>
+            <option value="MC">MC</option>
+            <option value="ESC">ESC</option>
+            <option value="PROJ">PROJ</option>
+            <option value="BSC">BSC</option>
+            <option value="OEC">OEC</option>
+            <option value="PEC">PEC</option>
+          </select>
         </div>
-        <h5>Enter course outcomes:</h5>
-        <hr />
-        {Object.keys(courseOutcomes).map((co, index) => (
-          <div key={index} className="input-field">
-            <label>Course Outcome {index + 1}</label>
-            <input type="text" name={co} value={courseOutcomes[co]} onChange={handleInputChange} className="form-input" placeholder={`Enter ${co}`}
-            />
-          </div>
-        ))}
-        <button type="submit" className="submit-button"><b>Submit</b></button>
-      </form>
-    </div>
+        <div className="input-field">
+          <label>Regulation</label>
+          <select value={regulation} onChange={(e) => setRegulation(e.target.value)} required>
+            <option value="">Select Regulation</option>
+            {regulations.map((reg) => (
+              <option key={reg._id} value={reg.regulation}>{reg.regulation}</option>
+            ))}
+          </select>
+        </div>
+        <div className="input-field">
+          <label>Semester</label>
+          <select value={semester} onChange={(e) => setSemester(e.target.value)} required>
+            <option value="">Select Semester</option>
+            <option value="I-I">I-I</option>
+            <option value="I-II">I-II</option>
+            <option value="II-I">II-I</option>
+            <option value="II-II">II-II</option>
+            <option value="III-I">III-I</option>
+            <option value="III-II">III-II</option>
+            <option value="IV-I">IV-I</option>
+            <option value="IV-II">IV-II</option>
+          </select>
+        </div>
+        <div className="input-field">
+          <label>Course Title</label>
+          <select value={courseTitle} onChange={(e) => {
+            setCourseTitle(e.target.value)
+          }} required>
+            <option value="">Select Course Title</option>
+            {courseTitles.map((course) => {
+              if (category === course.category) {
+                return <option key={course.courseCode} value={course.courseTitle}>{course.courseTitle}</option>
+              }
+              return null;
+            })}
+          </select>
+        </div>
+        <div className="input-field">
+          <label>Course Code</label>
+          <input type="text" value={courseCode} placeholder="Course Code" readOnly />
+        </div>
+      </div>
+    </div> {/* Closing of the first regulation-form */}
+          <br />
+    <div className="regulation-form"> {/* Opening of the second regulation-form */}
+      <h5>Enter course outcomes:</h5>
+      <hr />
+      {Object.keys(courseOutcomes).map((co, index) => (
+        <div key={index} className="input-field">
+          <label>Course Outcome {index + 1}</label>
+          <input type="text" name={co} value={courseOutcomes[co]} onChange={handleInputChange} className="form-input" placeholder={`Enter ${co}`}
+          />
+        </div>
+      ))}
+      <button type="submit" className="submit-button"><b>Submit</b></button>
+    </div> {/* Closing of the second regulation-form */}
+  </form>
   );
 };
 
