@@ -3,7 +3,7 @@ const ProgramStructure = require('../models/ProgramStructure');
 const path = require('path');
 const fs = require('fs');
 
-// **Upload Program Structure**
+// Upload Program Structure
 exports.uploadProgramStructure = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
@@ -15,7 +15,7 @@ exports.uploadProgramStructure = async (req, res) => {
     const sheetName = workbook.SheetNames[0]; // Get first sheet
     const sheet = workbook.Sheets[sheetName];
 
-    // **Read data with correct headers**
+    // Read data with correct headers
     const jsonData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
     console.log('Raw Data from Excel:', jsonData); // Debugging log
@@ -24,9 +24,9 @@ exports.uploadProgramStructure = async (req, res) => {
       return res.status(400).json({ message: 'Excel file is empty or invalid' });
     }
 
-    // **Extract headers from first row**
+    // Extract headers from first row
     const headers = jsonData[0];
-    // **Expected column headers (must match exactly)**
+    // Expected column headers (must match exactly)
     const expectedHeaders = [
       'courseCode', 'courseTitle', 'category', 'L', 'T', 'PD',
       'CIE', 'SEE', 'totalMarks', 'credits', 'batch',
@@ -37,15 +37,13 @@ exports.uploadProgramStructure = async (req, res) => {
       return res.status(400).json({ message: 'Excel file headers are incorrect. Please use the correct template.' });
     }
 
-    // **Map the Excel data correctly**
+    // Map the Excel data correctly
     const mappedData = jsonData.slice(1).map(row => {
       let obj = {};
       headers.forEach((key, index) => {
         let value = row[index];
-
-        // Preserve '-' and prevent automatic number conversion
         if (['L', 'T', 'PD', 'CIE', 'SEE', 'totalMarks', 'credits'].includes(key)) {
-          obj[key] = value === '-' ? 0 : value; // Keep '-' unchanged
+          obj[key] = value === '-' ? 0 : value; 
         } else {
           obj[key] = value || '-';
         }        
@@ -55,10 +53,10 @@ exports.uploadProgramStructure = async (req, res) => {
 
     console.log('Mapped JSON Data:', mappedData); // Debugging log
 
-    // **Insert into MongoDB**
+    // Insert into MongoDB
     await ProgramStructure.insertMany(mappedData);
 
-    // **Delete file after processing**
+    // Delete file after processing
     fs.unlinkSync(filePath);
 
     res.status(200).json({ message: 'Program structure uploaded successfully' });
@@ -69,7 +67,7 @@ exports.uploadProgramStructure = async (req, res) => {
   }
 };
 
-// **Download Template**
+// Download Template
 exports.downloadTemplate = (req, res) => {
   const templatePath = path.join(__dirname, '../public/templates/program_structure_template.xlsx');
 
@@ -80,7 +78,7 @@ exports.downloadTemplate = (req, res) => {
   res.download(templatePath, 'program_structure_template.xlsx');
 };
 
-// **Fetch Program Structure**
+// Fetch Program Structure
 exports.fetchProgramStructure = async (req, res) => {
   try {
     const { batch, academicYear, semester, regulation } = req.query;

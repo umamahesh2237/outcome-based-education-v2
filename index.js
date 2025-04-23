@@ -17,20 +17,23 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/loginSystem';
 
 // Connect to MongoDB with error handling
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch((err) => console.error('MongoDB connection error:', err));
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 
 // Import routes
-const userRoutes = require('./routes/userRoutes');
-const regulationRoutes = require('./routes/regulationRoutes');
-const courseRoutes = require('./routes/courseRoutes');
+const assignmentAttainmentRoutes = require('./routes/assignmentAttainment');
+const copoMappingRoutes = require('./routes/copoMapping');
 const courseOutcomeRoutes = require('./routes/courseOutcomes');
+const courseRoutes = require('./routes/courseRoutes');
+const endExamAttainmentRoutes = require('./routes/endExamAttainment');
+const objectiveAttainmentRoutes = require('./routes/objectiveAttainment');
 const programStructureRoutes = require('./routes/programStructure');
+const regulationRoutes = require('./routes/regulationRoutes');
 const rubricMappingRoutes = require('./routes/rubricMapping');
+const userRoutes = require('./routes/userRoutes');
+const subjectiveAttainmentRoutes = require('./routes/subjectiveAttainment');
+const presentationAttainmentRoutes = require('./routes/presentationAttainment');
 
 // Use routes
 app.use('/api/users', userRoutes);
@@ -39,6 +42,12 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/course-outcomes', courseOutcomeRoutes);
 app.use('/api/program-structure', programStructureRoutes);
 app.use('/api/rubric-mapping', rubricMappingRoutes);
+app.use('/api/assignment-attainment', assignmentAttainmentRoutes);
+app.use('/api/end-exam-attainment', endExamAttainmentRoutes);
+app.use('/api/objective-attainment', objectiveAttainmentRoutes);
+app.use('/api/subjective-attainment', subjectiveAttainmentRoutes);
+app.use('/api/copo-mapping', copoMappingRoutes);
+app.use('/api/presentation-attainment', presentationAttainmentRoutes);
 
 // Serve static files (for deployment)
 if (process.env.NODE_ENV === 'production') {

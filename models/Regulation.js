@@ -7,7 +7,6 @@ const regulationSchema = new mongoose.Schema({
   semester: { type: String, required: true },
 }, { timestamps: true });
 
-// Add a unique compound index
 regulationSchema.index({ batch: 1, year: 1, regulation: 1 }, { unique: true });
 
 module.exports = mongoose.model('Regulation', regulationSchema);

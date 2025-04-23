@@ -10,9 +10,9 @@
 }
 /* Card Styling */
 .auth-card {
-  background-color: #fff;
   padding: 40px;
   border-radius: 15px;
+  background-color: rgba(249, 249, 249, 0.8);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); /* Increased shadow for depth */
   max-width: 400px;
   width: 100%;
@@ -240,6 +240,12 @@ button:hover {
   min-height: 100vh;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 /* Logout Button */
 .logout-button {
   background-color: #ff4d4d;
@@ -291,20 +297,40 @@ select:focus {
   box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
 }
 
+.delete-button {
+  align-items: center;
+  padding: 12px 20px; /* Adjusted padding to match input fields and add-button */
+  border: none;
+  background-color: #dc3545; /* Red color for delete */
+  color: white;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+.delete-button:hover {
+  background-color: #c82333; /* Darker red on hover */
+  transform: scale(1.05);
+}
+
+.delete-button:active {
+  transform: scale(0.98);
+}
+
+.delete-button svg {
+  margin-right: 5px;
+}
+
 /* Add Button Styling */
 .add-button {
-  display: flex;
   align-items: center;
   padding: 12px 20px; /* Adjusted padding to match input fields */
   border: none;
   background-color: #007bff;
   color: white;
   cursor: pointer;
-  margin-bottom: 20px;
   border-radius: 5px;
   transition: background-color 0.3s, transform 0.1s;
-  font-size: 16px; /* Ensure font size matches input fields */
-  line-height: 1.5; /* Adjust line-height if necessary */
 }
 
 .add-button:hover {
@@ -342,7 +368,7 @@ select:focus {
 
 /* Adjust Form Layout */
 .regulation-form {
-  background-color: rgba(249, 249, 249, 0.3); /* Very translucent background */
+  background-color: rgba(249, 249, 249, 0.2); /* Very translucent background */
   padding: 20px;
   border-radius: 10px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.08);
@@ -395,6 +421,11 @@ select:focus {
   }
 }
 
+.action-column {
+  display: flex;
+  justify-content: center;
+}
+
 .table {
   border-collapse: collapse;
   width: 100%;
@@ -429,4 +460,8 @@ select:focus {
 
 .table tbody tr:last-child td:last-child {
   border-bottom-right-radius: 8px;
+}
+
+.vertical-center {
+  vertical-align: middle;
 }

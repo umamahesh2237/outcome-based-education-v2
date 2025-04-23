@@ -22,10 +22,14 @@ const ViewTheoryCO = () => {
     rubric: '',
     mappedCOs: '',
     marks: '',
+    weightage: '',
+    assessmentType: 'Direct'
   });
   const [uploadedFile, setUploadedFile] = useState(null);
   const [showMarksheet, setShowMarksheet] = useState(false);
   const [marksheetData, setMarksheetData] = useState([]);
+  const [rubricsByCategory, setRubricsByCategory] = useState({});
+  const [weightageError, setWeightageError] = useState({});
 
   useEffect(() => {
     if (filters.regulation && filters.semester && filters.category) {
@@ -34,6 +38,26 @@ const ViewTheoryCO = () => {
         .catch(() => setCourseTitles([]));
     }
   }, [filters]);
+
+  useEffect(() => {
+    // Calculate total weightage for each category and assessment type
+    const errors = {};
+    
+    Object.keys(rubricsByCategory).forEach(category => {
+      const directRubrics = rubricsByCategory[category].filter(r => r.assessmentType === 'Direct');
+      const indirectRubrics = rubricsByCategory[category].filter(r => r.assessmentType === 'Indirect');
+      
+      const directTotal = directRubrics.reduce((sum, r) => sum + Number(r.weightage), 0);
+      const indirectTotal = indirectRubrics.reduce((sum, r) => sum + Number(r.weightage), 0);
+      
+      errors[category] = {
+        Direct: directRubrics.length > 0 && directTotal !== 100,
+        Indirect: indirectRubrics.length > 0 && indirectTotal !== 100
+      };
+    });
+    
+    setWeightageError(errors);
+  }, [rubricsByCategory]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -61,29 +85,77 @@ const ViewTheoryCO = () => {
   };
 
   const addRubric = () => {
-    if (newRubric.category && newRubric.rubric && newRubric.mappedCOs && newRubric.marks) {
-      setRubrics([...rubrics, {
+    if (newRubric.category && newRubric.rubric && newRubric.mappedCOs && newRubric.marks && newRubric.weightage && newRubric.assessmentType) {
+      const rubricToAdd = {
         ...newRubric,
+        id: Date.now(), // Add a unique ID for each rubric
         rubricTitle: newRubric.rubric // Use the selected rubric value directly
-      }]);
+      };
+      
+      // Check if the rubric already exists in the category
+      const categoryRubrics = rubricsByCategory[newRubric.category] || [];
+      const rubricExists = categoryRubrics.some(r => 
+        r.rubric === newRubric.rubric && 
+        r.assessmentType === newRubric.assessmentType
+      );
+      
+      if (rubricExists) {
+        alert(`Rubric "${newRubric.rubric}" already exists for ${newRubric.assessmentType} assessment in ${newRubric.category} category.`);
+        return;
+      }
+      
+      // Add to the overall rubrics list
+      setRubrics([...rubrics, rubricToAdd]);
+      
+      // Add to the category-specific list
+      setRubricsByCategory(prev => ({
+        ...prev,
+        [newRubric.category]: [...(prev[newRubric.category] || []), rubricToAdd]
+      }));
+      
+      // Reset the form
       setNewRubric({
         category: '',
         rubric: '',
         mappedCOs: '',
-        marks: ''
+        marks: '',
+        weightage: '',
+        assessmentType: 'Direct'
       });
+    } else {
+      alert('All fields are required');
     }
   };
 
-  const generateExcelTemplate = useCallback(() => {
+  const deleteRubric = (category, rubricId) => {
+    // Remove from category-specific list
+    setRubricsByCategory(prev => ({
+      ...prev,
+      [category]: prev[category].filter(r => r.id !== rubricId)
+    }));
+    
+    // Remove from overall rubrics list
+    setRubrics(prev => prev.filter(r => r.id !== rubricId));
+  };
+
+  const generateExcelTemplate = useCallback((category, assessmentType) => {
+    // Check if weightage adds up to 100%
+    const categoryRubrics = rubricsByCategory[category].filter(r => r.assessmentType === assessmentType);
+    const totalWeightage = categoryRubrics.reduce((sum, r) => sum + Number(r.weightage), 0);
+    
+    if (totalWeightage !== 100) {
+      alert(`Total weightage for ${category} ${assessmentType} assessment must be 100%. Current total: ${totalWeightage}%`);
+      return;
+    }
+    
     const wsData = [
-      ['Name', 'RollNo', 'SubjectTitle', 'CourseCode', ...rubrics.map(r => `${r.rubricTitle} (${r.marks})`)]
+      ['Name', 'RollNo', 'SubjectTitle', 'CourseCode', ...categoryRubrics.map(r => `${r.rubricTitle} (${r.marks})`)]
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Rubric Mapping');
-    XLSX.writeFile(wb, 'Rubric_Mapping_Template.xlsx');
-  }, [rubrics]);
+    XLSX.utils.book_append_sheet(wb, ws, `${category} ${assessmentType} Assessment`);
+    XLSX.writeFile(wb, `${category}_${assessmentType}_Assessment_Template.xlsx`);
+  }, [rubricsByCategory]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -129,15 +201,19 @@ const ViewTheoryCO = () => {
 
   const handleDelete = async (co, e) => {
     e.preventDefault();
-    courseOutcomes[co] = '';
+    
+    // Create a new object without the deleted CO
+    const updatedCourseOutcomes = { ...courseOutcomes };
+    delete updatedCourseOutcomes[co];
+    
     try {
       await axios.post(`${API_BASE_URL}/api/course-outcomes/update`, {
-        courseOutcomes,
+        courseOutcomes: updatedCourseOutcomes, // Send the updated object
         filters,
       });
-      setTempCO(courseOutcomes);
-      setCourseOutcomes(null);
-      setCourseOutcomes(courseOutcomes);
+      
+      setTempCO(updatedCourseOutcomes);
+      setCourseOutcomes(updatedCourseOutcomes); // Update state with the new object
       alert('Course outcome deleted successfully');
       setEditingCO(null);
     } catch (error) {
@@ -192,9 +268,9 @@ const ViewTheoryCO = () => {
         <button type="button" onClick={fetchCourseOutcomes} className="submit-button">
           <b>Fetch Course Outcomes</b>
         </button>
-      </form>  
+      </form>
       <br />
-      <div className = "regulation-form">
+      <div className="regulation-form">
         <h5>View and modify course outcomes:</h5>
         <hr />
         {courseOutcomes ? (
@@ -229,25 +305,25 @@ const ViewTheoryCO = () => {
                           desc
                         )}
                       </td>
-                      <td>
+                      <td className="action-column">
                         {editingCO === co ? (
-                          <>
-                            <button type="button" className="save-button" onClick={(e) => handleSave(co, e)}>
-                              Save
+                          <div className="button-group">
+                            <button type="button" className="submit-button" onClick={(e) => handleSave(co, e)}>
+                              <b>Save</b>
                             </button>
-                            <button type="button" className="cancel-button" onClick={(e) => handleCancel(co)}>
-                              Cancel
+                            <button type="button" className="add-button" onClick={(e) => handleCancel(co)}>
+                              <b>Cancel</b>
                             </button>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <button type="button" className="edit-button" onClick={() => handleEdit(co, desc)}>
-                              Edit
+                          <div className="button-group">
+                            <button type="button" className="submit-button" onClick={() => handleEdit(co, desc)}>
+                              <b>Edit</b>
                             </button>
                             <button type="button" className="delete-button" onClick={(e) => handleDelete(co, e)}>
-                              Delete
+                              <b>Delete</b>
                             </button>
-                          </>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -256,7 +332,7 @@ const ViewTheoryCO = () => {
             </table>
           </div>
         ) : (
-          <p>No outcomes for the selected criteria</p>
+          <p align="center">No outcomes for the selected criteria</p>
         )}
       </div>
       <br />
@@ -292,7 +368,7 @@ const ViewTheoryCO = () => {
             />
           </div>
           <div className="input-field">
-            <label>Total Marks for the rubric</label>
+            <label>Total Marks</label>
             <input
               name="marks"
               type="number"
@@ -301,39 +377,145 @@ const ViewTheoryCO = () => {
               onChange={handleRubricChange}
             />
           </div>
+          <div className="input-field">
+            <label>Weightage (in %)</label>
+            <input
+              name="weightage"
+              type="number"
+              placeholder="Enter weightage"
+              value={newRubric.weightage}
+              onChange={handleRubricChange}
+            />
+          </div>
+          <div className="input-field">
+            <label>Assessment Type</label>
+            <select name="assessmentType" value={newRubric.assessmentType} onChange={handleRubricChange}>
+              <option value="Direct">Direct</option>
+              <option value="Indirect">Indirect</option>
+            </select>
+          </div>
         </div>
         <button type="button" onClick={addRubric} className="add-button">
-            <b>Add Rubric</b>
-          </button>
-        {rubrics.length > 0 && (
-          <div className="table-responsive mt-4">
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Rubric</th>
-                  <th>Outcome</th>
-                  <th>Marks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rubrics.map((r, index) => (
-                  <tr key={index}>
-                    <td>{r.rubricTitle}</td>
-                    <td>{r.mappedCOs}</td>
-                    <td>{r.marks}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button type="button" onClick={generateExcelTemplate} className="add-button">
-              Generate Excel Template
-            </button>
+          <b>Add Rubric</b>
+        </button>
+
+        {Object.keys(rubricsByCategory).map(category => (
+          <div key={category}>
+            <h5 className="mt-4">{category} Category Rubrics</h5>
+            
+            {/* Direct Assessment Rubrics */}
+            {rubricsByCategory[category].filter(r => r.assessmentType === 'Direct').length > 0 && (
+              <div className="table-responsive mt-4">
+                <h6>Direct Assessment</h6>
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Rubric</th>
+                      <th>Outcome</th>
+                      <th>Marks</th>
+                      <th>Weightage (%)</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rubricsByCategory[category]
+                      .filter(r => r.assessmentType === 'Direct')
+                      .map((r) => (
+                        <tr key={r.id}>
+                          <td>{r.rubricTitle}</td>
+                          <td>{r.mappedCOs}</td>
+                          <td>{r.marks}</td>
+                          <td>{r.weightage}%</td>
+                          <td>
+                            <button 
+                              type="button" 
+                              className="delete-button" 
+                              onClick={() => deleteRubric(category, r.id)}
+                            >
+                              <b>Delete</b>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {weightageError[category]?.Direct && (
+                  <p className="error-text">Total weightage must be 100%. Current total: 
+                    {rubricsByCategory[category]
+                      .filter(r => r.assessmentType === 'Direct')
+                      .reduce((sum, r) => sum + Number(r.weightage), 0)}%
+                  </p>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => generateExcelTemplate(category, 'Direct')} 
+                  className="submit-button"
+                  disabled={weightageError[category]?.Direct}
+                >
+                  <b>Generate {category} Direct Assessment Excel Template</b>
+                </button>
+              </div>
+            )}
+
+            {/* Indirect Assessment Rubrics */}
+            {rubricsByCategory[category].filter(r => r.assessmentType === 'Indirect').length > 0 && (
+              <div className="table-responsive mt-4">
+                <h6>Indirect Assessment</h6>
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Rubric</th>
+                      <th>Outcome</th>
+                      <th>Marks</th>
+                      <th>Weightage (%)</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rubricsByCategory[category]
+                      .filter(r => r.assessmentType === 'Indirect')
+                      .map((r) => (
+                        <tr key={r.id}>
+                          <td>{r.rubricTitle}</td>
+                          <td>{r.mappedCOs}</td>
+                          <td>{r.marks}</td>
+                          <td>{r.weightage}%</td>
+                          <td>
+                            <button 
+                              type="button" 
+                              className="delete-button" 
+                              onClick={() => deleteRubric(category, r.id)}
+                            >
+                              <b>Delete</b>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {weightageError[category]?.Indirect && (
+                  <p className="error-text">Total weightage must be 100%. Current total: 
+                    {rubricsByCategory[category]
+                      .filter(r => r.assessmentType === 'Indirect')
+                      .reduce((sum, r) => sum + Number(r.weightage), 0)}%
+                  </p>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => generateExcelTemplate(category, 'Indirect')} 
+                  className="submit-button"
+                  disabled={weightageError[category]?.Indirect}
+                >
+                  <b>Generate {category} Indirect Assessment Excel Template</b>
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        ))}
       </div>
       <br />
       <div className="regulation-form">
-        <h5>Upload and view marksheet</h5>
+        <h5>Upload and view marksheet:</h5>
         <hr />
         <div className="upload-section">
           <input type="file" onChange={handleFileUpload} accept=".xlsx, .xls" />
