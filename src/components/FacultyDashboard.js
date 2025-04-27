@@ -26,7 +26,6 @@ function FacultyDashboard() {
           <li><a href="/faculty/endexam-attainment"><i className="icon">📊</i> <span>End Exam Attainment</span></a></li>
           <li><span className="sidebar-heading">Indirect Attainments</span></li>
           <li><a href="/faculty/tlp-feedback"><i className="icon">📋</i> <span>TLP Feedback</span></a></li>
-          <li><a href="/faculty/crc-report"><i className="icon">📈</i> <span>CRC Report</span></a></li>
           <li><a href="/faculty/course-end-survey"><i className="icon">📑</i> <span>Course End Survey</span></a></li>
           <li><a href="/faculty/print-attainments"><i className="icon">🖨️</i> <span>Print Attainments</span></a></li>
         </ul>

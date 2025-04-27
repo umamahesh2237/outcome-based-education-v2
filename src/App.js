@@ -10,14 +10,14 @@ import ViewTheoryCO from './components/ViewTheoryCO';
 import AddRegulation from './components/AddRegulation';
 import AssignmentAttainment from './components/AssignmentAttainment';
 import COPOMapping from './components/COPOMapping';
-import { UserProvider } from './UserContext'; // Import UserProvider
+import { UserProvider } from './UserContext';
 import SubjectiveAttainment from './components/SubjectiveAttainment';
 import ObjectiveAttainment from './components/ObjectiveAttainment';
 import PresentationAttainment from './components/PresentationAttainment'; 
 import EndExamAttainment from './components/EndExamAttainment';
-// import TLPAttainment from './components/TLPAttainment'; 
-// import CESAttainment from './components/CESAttainment';
-// import PrintAttainment from './components/PrintAttainment';
+import TLPFeedback from './components/TLPFeedback'; 
+import CourseEndSurvey from './components/CourseEndSurvey';
+import PrintAttainment from './components/PrintAttainment';
 
 function App() {
   return (
@@ -40,9 +40,9 @@ function App() {
             <Route path="/faculty/objective-attainment" element={<ObjectiveAttainment/>}/>
             <Route path="/faculty/presentation-attainment" element={<PresentationAttainment/>}/>
             <Route path="/faculty/endexam-attainment" element={<EndExamAttainment/>}/>
-            {/* <Route path="/faculty/tlp-feedback" element={<TLPAttainment/>}/>
-            <Route path="/faculty/course-end-survey" element={<CESAttainment/>}/>
-            <Route path="/faculty/print-attainments" element={<PrintAttainment/>}/> */}
+            <Route path="/faculty/tlp-feedback" element={<TLPFeedback/>}/>
+            <Route path="/faculty/course-end-survey" element={<CourseEndSurvey/>}/>
+            <Route path="/faculty/print-attainments" element={<PrintAttainment/>}/>
           </Route>
         </Routes>
         </div>

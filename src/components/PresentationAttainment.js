@@ -19,7 +19,7 @@ const PresentationAttainment = () => {
   const [presentationMarks, setPresentationMarks] = useState([]);
   const [maxPresentationMarks] = useState(5); // Default value
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false); // Added loading state
+  const [loading, setLoading] = useState(false);
 
   const batchOptions = Array.from({ length: 10 }, (_, i) => (2021 + i).toString());
 
@@ -46,6 +46,8 @@ const PresentationAttainment = () => {
         } finally {
           setLoading(false);
         }
+      } else {
+        setCourseTitles([]);
       }
     };
     fetchCourses();
@@ -75,41 +77,29 @@ const PresentationAttainment = () => {
     if (filters.regulation && filters.semester && filters.category && filters.courseTitle && batch && academicYear) {
       setLoading(true);
       try {
-        const [marksRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/presentation-attainment/marks/fetch`, {
-            params: { ...filters, batch, academicYear }
-          })
-        ]);
+        const marksRes = await axios.get(`${API_BASE_URL}/api/presentation-attainment/marks/fetch`, {
+          params: { ...filters, batch, academicYear }
+        });
 
         if (marksRes.data && Array.isArray(marksRes.data.marks)) {
-          const fetchedMarks = marksRes.data.marks;
-
-          setPresentationMarks(prevMarks =>
-            prevMarks.map(row => {
-              const matchingMark = fetchedMarks.find(mark => mark.rollNo === row.rollNo);
-              return matchingMark ? { ...row, ...matchingMark } : row;
-            })
-          );
+          setPresentationMarks(marksRes.data.marks);
           setError(null);
         } else if (marksRes.data && marksRes.data.message) {
-          setError(marksRes.data.message); // Display "No marks found" message
-          setPresentationMarks(Array.from({ length: 300 }, (_, index) => ({ sNo: index + 1, rollNo: '', presentation: '' }))); // Initialize empty if no data
+          setError(marksRes.data.message);
+          setPresentationMarks([]);
         } else {
           setError('Error: Invalid response when fetching presentation marks.');
-          setPresentationMarks(Array.from({ length: 300 }, (_, index) => ({ sNo: index + 1, rollNo: '', presentation: '' }))); // Initialize empty on error
+          setPresentationMarks([]);
         }
       } catch (error) {
         console.error('Error fetching presentation marks:', error);
         setError('Error fetching existing presentation marks');
-        setPresentationMarks(Array.from({ length: 300 }, (_, index) => ({ sNo: index + 1, rollNo: '', presentation: '' }))); // Initialize empty on error
+        setPresentationMarks([]);
       } finally {
         setLoading(false);
       }
-    } else if (activeComponent === 'marks') {
-      // Initialize with empty rows if marks component is active and no filters are fully selected
-      setPresentationMarks(Array.from({ length: 300 }, (_, index) => ({ sNo: index + 1, rollNo: '', presentation: '' })));
     }
-  }, [filters, batch, academicYear, activeComponent]);
+  }, [filters, batch, academicYear]);
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -123,14 +113,7 @@ const PresentationAttainment = () => {
           setCourseOutcomes(outcomes);
           setError(null);
 
-          // Initialize marks with empty rows
-          setPresentationMarks(Array.from({ length: 300 }, (_, index) => ({
-            sNo: index + 1,
-            rollNo: '',
-            presentation: '',
-          })));
-
-          // Fetch existing marks after course data is loaded and all filters are available
+          // Fetch existing marks after course data and all filters are available
           fetchExistingMarks();
         } catch (err) {
           setError('Error fetching course outcomes');
@@ -147,6 +130,19 @@ const PresentationAttainment = () => {
     };
     fetchCourseData();
   }, [filters.courseTitle, filters.semester, batch, academicYear, fetchExistingMarks, filters]);
+
+  useEffect(() => {
+    if (activeComponent === 'marks' && filters.courseTitle && filters.semester && batch && academicYear) {
+      // Initialize with empty rows only when the marks component is active and filters are selected
+      if (presentationMarks.length === 0) {
+        setPresentationMarks(Array.from({ length: 300 }, (_, index) => ({ sNo: index + 1, rollNo: '', presentation: '' })));
+      }
+    } else if (activeComponent !== 'marks') {
+      setPresentationMarks([]); // Clear marks when not on the marks component
+    }
+  }, [activeComponent, filters.courseTitle, filters.semester, batch, academicYear, presentationMarks.length]);
+
+
   const handlePresentationMarkChange = (index, value) => {
     const numValue = value === '' ? '' : Number(value);
     if (numValue > maxPresentationMarks) {

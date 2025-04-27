@@ -34,6 +34,8 @@ const rubricMappingRoutes = require('./routes/rubricMapping');
 const userRoutes = require('./routes/userRoutes');
 const subjectiveAttainmentRoutes = require('./routes/subjectiveAttainment');
 const presentationAttainmentRoutes = require('./routes/presentationAttainment');
+const indirectAttainmentRoutes = require('./routes/indirectAttainmentRoutes'); 
+const printAttainmentRoutes = require('./routes/printAttainmentRoutes');
 
 // Use routes
 app.use('/api/users', userRoutes);
@@ -47,7 +49,9 @@ app.use('/api/end-exam-attainment', endExamAttainmentRoutes);
 app.use('/api/objective-attainment', objectiveAttainmentRoutes);
 app.use('/api/subjective-attainment', subjectiveAttainmentRoutes);
 app.use('/api/copo-mapping', copoMappingRoutes);
+app.use('/api/indirect-attainment', indirectAttainmentRoutes);
 app.use('/api/presentation-attainment', presentationAttainmentRoutes);
+app.use('/api/print-attainment', printAttainmentRoutes);
 
 // Serve static files (for deployment)
 if (process.env.NODE_ENV === 'production') {

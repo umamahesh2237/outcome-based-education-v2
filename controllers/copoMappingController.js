@@ -2,9 +2,8 @@ const COPOMapping = require('../models/COPOMapping');
 
 // Controller to save CO-PO mappings
 exports.saveMappings = async (req, res) => {
-  const { regulation, semester, academicYear, courseName, facultyName, mappings, columnAverages } = req.body;
-
-  if (!regulation || !semester || !academicYear || !courseName || !facultyName || !mappings) {
+  const { regulation, semester, category, courseTitle, mappings, columnAverages } = req.body;
+  if (!regulation || !semester || !category || !courseTitle || !mappings) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
@@ -13,9 +12,8 @@ exports.saveMappings = async (req, res) => {
     let mapping = await COPOMapping.findOne({
       regulation,
       semester,
-      academicYear,
-      courseName,
-      facultyName
+      category,
+      courseName: courseTitle
     });
 
     if (mapping) {
@@ -28,9 +26,8 @@ exports.saveMappings = async (req, res) => {
       mapping = new COPOMapping({
         regulation,
         semester,
-        academicYear,
-        courseName,
-        facultyName,
+        category,
+        courseName:courseTitle,
         mappings,
         columnAverages
       });
@@ -46,9 +43,9 @@ exports.saveMappings = async (req, res) => {
 
 // Controller to fetch CO-PO mappings
 exports.fetchMappings = async (req, res) => {
-  const { regulation, semester, academicYear, courseName, facultyName } = req.query;
+  const { regulation, semester, category, courseTitle } = req.query;
 
-  if (!regulation || !semester || !academicYear || !courseName || !facultyName) {
+  if (!regulation || !semester || !category || !courseTitle) {
     return res.status(400).json({ message: 'All filters are required' });
   }
 
@@ -56,9 +53,8 @@ exports.fetchMappings = async (req, res) => {
     const mapping = await COPOMapping.findOne({
       regulation,
       semester,
-      academicYear,
-      courseName,
-      facultyName
+      category,
+      courseName: courseTitle
     });
 
     if (!mapping) {

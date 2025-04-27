@@ -2,10 +2,9 @@ const mongoose = require('mongoose');
 
 const copoMappingSchema = new mongoose.Schema({
   regulation: { type: String, required: true },
-  academicYear: { type: String, required: true },
   semester: { type: String, required: true },
+  category: { type: String, required: true },
   courseName: { type: String, required: true },
-  facultyName: { type: String, required: true },
   mappings: [{
     coNumber: { type: String, required: true },
     po1: { type: String, enum: ['1', '2', '3', '-'], default: '-' },
