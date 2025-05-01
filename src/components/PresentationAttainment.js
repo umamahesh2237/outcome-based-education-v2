@@ -175,6 +175,7 @@ const PresentationAttainment = () => {
         marks: validMarks
       });
       alert('Presentation marks saved successfully!');
+      fetchExistingMarks(); // Refresh the marks after saving
       setError(null);
     } catch (error) {
       setError('Error saving presentation marks');

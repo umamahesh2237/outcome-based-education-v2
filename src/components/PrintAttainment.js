@@ -1,10 +1,124 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './Auth.css'; // Assuming you have some shared styles
+import './Auth.css';
+import { jsPDF } from 'jspdf';
+import * as autoTable from 'jspdf-autotable';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const PrintAttainment = () => {
+    const handleDownloadReport = () => {
+        if (!printData) {
+            alert('Please generate the report first.');
+            return;
+        }
+    
+        const doc = new jsPDF();
+        let yPosition = 10;
+        const margin = 10;
+    
+        const addTable = (title, headers, data) => {
+            doc.setFontSize(12);
+            doc.text(title, margin, yPosition);
+            yPosition += 6;
+    
+            autoTable.default(doc, { // Using autoTable.default here
+                head: [headers],
+                body: data,
+                startY: yPosition,
+                margin: { left: margin, right: margin },
+            });
+    
+            yPosition = doc.lastAutoTable.finalY + 10;
+        };
+    
+        // Direct Attainments Table
+        if (printData.directAttainments) {
+            const headers = ['CO', 'Subjective (%)', 'LOI', 'Objective (%)', 'LOI', 'Assignment (%)', 'LOI', 'Presentation (%)', 'LOI', 'SEE Level', 'Direct Attainment'];
+            const data = Object.keys(printData.directAttainments.overall).map(co => {
+                const coKey = `CO${Number(co) + 1}`;
+                const subjective = printData.directAttainments.subjective[coKey] || {};
+                const objective = printData.directAttainments.objective[co] || {};
+                const assignment = printData.directAttainments.assignment[co] || {};
+                const presentation = printData.directAttainments.presentation[coKey] || {};
+                const seeLevel = printData.directAttainments.seeLevel[co] || {};
+                const overall = printData.directAttainments.overall[co] || {};
+                return [
+                    coKey,
+                    subjective.percentage?.toFixed(2) || '-',
+                    subjective.loi || '-',
+                    objective.percentage?.toFixed(2) || '-',
+                    objective.loi || '-',
+                    assignment.percentage?.toFixed(2) || '-',
+                    assignment.loi || '-',
+                    presentation.percentage?.toFixed(2) || '-',
+                    presentation.loi || '-',
+                    seeLevel.level?.toFixed(2) || '-',
+                    overall.level?.toFixed(2) || '-',
+                ];
+            });
+            addTable('Direct Attainments', headers, data);
+        }
+    
+        // Indirect Attainments Table
+        if (printData.indirectAttainments?.overall) {
+            const headers = ['CO', 'TLP Feedback (%)', 'LOI', 'Course End Survey (%)', 'LOI', 'Indirect Attainment'];
+            const data = Object.keys(printData.indirectAttainments.overall).map(co => {
+                const ces = printData.indirectAttainments.ces[co] || {};
+                const tlp = printData.indirectAttainments.tlp || {};
+                const overallIndirectLOI = printData.indirectAttainments.overall[co] || '-';
+                return [
+                    co,
+                    tlp.percentage?.toFixed(2) || '-',
+                    tlp.loi || '-',
+                    ces.percentage?.toFixed(2) || '-',
+                    ces.loi || '-',
+                    overallIndirectLOI,
+                ];
+            });
+            addTable('Indirect Attainments', headers, data);
+        }
+    
+        // Overall Attainment Table
+        if (printData.coAttainmentTable) {
+            const headers = ['CO', 'Statement', 'Direct Attainment', 'Indirect Attainment (LOI)', 'Overall Attainment'];
+            const data = printData.coAttainmentTable.map(coData => [
+                coData.coNumber,
+                coData.statement,
+                coData.directAttainment?.toFixed(2) || '-',
+                coData.indirectAttainment || '-',
+                coData.overallAttainment?.toFixed(2) || '-',
+            ]);
+            addTable('Overall Attainment', headers, data);
+        }
+    
+        // CO-PO Mapping Table
+        if (printData.coPoMapping && printData.coPoMapping.length > 0) {
+            const poKeys = Object.keys(printData.coPoMapping[0]).filter(key => key.startsWith('po') || key.startsWith('pso'));
+            const headers = ['CO', ...poKeys.map(po => po.toUpperCase())];
+            const data = printData.coPoMapping.map(coMap => [coMap.coNumber, ...poKeys.map(po => coMap[po] || '-')]);
+            addTable('CO-PO Mapping', headers, data);
+    
+            // Add CO-PO Average if available
+            if (printData.coPoColumnAverages && Object.keys(printData.coPoColumnAverages).length > 0) {
+                const averageHeaders = ['Average', ...poKeys.map(po => printData.coPoColumnAverages[po]?.toFixed(2) || '-')];
+                addTable('CO-PO Average', averageHeaders, [averageHeaders.slice(1)]);
+            }
+        }
+    
+        // PO Attainments Table
+        if (printData.poAttainments) {
+            const headers = ['PO', 'Attainment Level', 'Status'];
+            const data = Object.keys(printData.poAttainments).map(po => {
+                const attainmentValue = printData.poAttainments[po];
+                const statusText = targetPoAttainment ? (attainmentValue >= parseFloat(targetPoAttainment) ? 'Reached' : 'Not Reached') : '-';
+                return [po.toUpperCase(), attainmentValue?.toFixed(2) || '-', statusText];
+            });
+            addTable('PO Attainments', headers, data);
+        }
+    
+        doc.save('attainment_report.pdf');
+    };
     const [filters, setFilters] = useState({
         regulation: '',
         semester: '',
@@ -44,7 +158,7 @@ const PrintAttainment = () => {
                 } catch (error) {
                     console.error('Error fetching course titles:', error);
                     setCourseTitles([]);
-                    setError('Failed to load course titles.');
+                    setError(error.message || 'Failed to load course titles.');
                 } finally {
                     setLoading(false);
                 }
@@ -82,19 +196,22 @@ const PrintAttainment = () => {
         setError(null);
         setPrintData(null);
         try {
-            const response = await axios.get(`${API_BASE_URL}/api/print-attainment/generate`, { params: { ...filters, batch, academicYear } });
-            setPrintData(response.data);
+            const response = await axios.get(`${API_BASE_URL}/api/print-attainment/generate`, {
+                params: { ...filters, batch, academicYear }
+            });
+            if (response.data) {
+                console.log('Received print data:', response.data);
+                setPrintData(response.data);
+            } else {
+                setError("No data received from the server");
+            }
+
         } catch (error) {
             console.error('Error generating print attainment report:', error);
-            setError('Failed to generate report.');
+            setError(error.message || 'Failed to generate report.');
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleDownloadReport = () => {
-        // Implement your report download logic here (e.g., using a library like jsPDF)
-        alert('Download report functionality to be implemented.');
     };
 
     const handleTargetPoAttainmentChange = (e) => {
@@ -105,7 +222,13 @@ const PrintAttainment = () => {
         <div className="regulation-inputs">
             <div className="input-field">
                 <label>Regulation</label>
-                <select name="regulation" value={filters.regulation} onChange={handleFilterChange} disabled={loading}>
+                <select
+                    name="regulation"
+                    value={filters.regulation}
+                    onChange={handleFilterChange}
+                    disabled={loading}
+                    className="w-full"
+                >
                     <option value="">Select</option>
                     <option value="AR20">AR20</option>
                     <option value="AR22">AR22</option>
@@ -113,7 +236,13 @@ const PrintAttainment = () => {
             </div>
             <div className="input-field">
                 <label>Semester</label>
-                <select name="semester" value={filters.semester} onChange={handleFilterChange} disabled={loading}>
+                <select
+                    name="semester"
+                    value={filters.semester}
+                    onChange={handleFilterChange}
+                    disabled={loading}
+                    className="w-full"
+                >
                     <option value="">Select</option>
                     {["I-I", "I-II", "II-I", "II-II", "III-I", "III-II", "IV-I", "IV-II"].map(sem => (
                         <option key={sem} value={sem}>{sem}</option>
@@ -122,7 +251,13 @@ const PrintAttainment = () => {
             </div>
             <div className="input-field">
                 <label>Category</label>
-                <select name="category" value={filters.category} onChange={handleFilterChange} disabled={loading}>
+                <select
+                    name="category"
+                    value={filters.category}
+                    onChange={handleFilterChange}
+                    disabled={loading}
+                    className="w-full"
+                >
                     <option value="">Select</option>
                     {["HSMC", "PCC", "MC", "ESC", "PROJ", "BSC", "OEC", "PEC"].map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
@@ -131,7 +266,13 @@ const PrintAttainment = () => {
             </div>
             <div className="input-field">
                 <label>Course Title</label>
-                <select name="courseTitle" value={filters.courseTitle} onChange={handleFilterChange} disabled={loading}>
+                <select
+                    name="courseTitle"
+                    value={filters.courseTitle}
+                    onChange={handleFilterChange}
+                    disabled={loading}
+                    className="w-full"
+                >
                     <option value="">Select</option>
                     {courseTitles.map(course => (
                         <option key={course.courseCode} value={course.courseTitle}>
@@ -142,7 +283,7 @@ const PrintAttainment = () => {
             </div>
             <div className="input-field">
                 <label>Batch</label>
-                <select name="batch" value={batch} onChange={handleBatchChange} disabled={loading}>
+                <select name="batch" value={batch} onChange={handleBatchChange} disabled={loading} className="w-full">
                     <option value="">Select</option>
                     {batchOptions.map(b => (
                         <option key={b} value={b}>{b}</option>
@@ -151,7 +292,7 @@ const PrintAttainment = () => {
             </div>
             <div className="input-field">
                 <label>Academic Year</label>
-                <select name="academicYear" value={academicYear} onChange={handleAcademicYearChange} disabled={loading}>
+                <select name="academicYear" value={academicYear} onChange={handleAcademicYearChange} disabled={loading} className="w-full">
                     <option value="">Select</option>
                     {academicYears.map(year => (
                         <option key={year} value={year}>{year}</option>
@@ -161,203 +302,229 @@ const PrintAttainment = () => {
         </div>
     );
 
-    const renderDirectAttainments = () => (
-        <div>
-            <h5>Direct Attainments</h5>
-            <div className="table-responsive mt-3">
-                <table className="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>CO</th>
-                            <th>Subjective (%)</th>
-                            <th>LOI</th>
-                            <th>Objective (%)</th>
-                            <th>LOI</th>
-                            <th>Assignment (%)</th>
-                            <th>LOI</th>
-                            <th>Presentation (%)</th>
-                            <th>LOI</th>
-                            <th>SEE Level</th>
-                            <th>LOI</th>
-                            <th>Direct Attainment Level (%)</th>
-                            <th>LOI</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {printData?.directAttainments?.overallDirectAttainment?.coLevels && Object.keys(printData.directAttainments.overallDirectAttainment.coLevels).map(co => (
-                            <tr key={co}>
-                                <td>{co}</td>
-                                <td>{printData.directAttainments.subjective.coAverages[co]?.toFixed(2) || '-'}</td>
-                                <td>{printData.directAttainments.subjective.lois[co] || '-'}</td>
-                                <td>{printData.directAttainments.objective.coAverages[co]?.toFixed(2) || '-'}</td>
-                                <td>{printData.directAttainments.objective.lois[co] || '-'}</td>
-                                <td>{printData.directAttainments.assignment.coAverages[co]?.toFixed(2) || '-'}</td>
-                                <td>{printData.directAttainments.assignment.lois[co] || '-'}</td>
-                                <td>{printData.directAttainments.presentation.coAverages[co]?.toFixed(2) || '-'}</td>
-                                <td>{printData.directAttainments.presentation.lois[co] || '-'}</td>
-                                <td>{printData.directAttainments.endExam.weightedLOIs[co] || '-'}</td>
-                                <td>{printData.directAttainments.endExam.lois[co] || '-'}</td>
-                                <td>{printData.directAttainments.overallDirectAttainment.coLevels[co]}</td>
-                                <td>{printData.directAttainments.overallDirectAttainment.lois[co]}</td>
+    const renderDirectAttainments = () => {
+        if (!printData?.directAttainments) return null;
+        const coList = Object.keys(printData.directAttainments.overall);
+        return (
+            <div>
+                <h5>Direct Attainments</h5>
+                <div className="table-responsive mt-3">
+                    <table className="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>CO</th>
+                                <th>Subjective (%)</th>
+                                <th>LOI</th>
+                                <th>Objective (%)</th>
+                                <th>LOI</th>
+                                <th>Assignment (%)</th>
+                                <th>LOI</th>
+                                <th>Presentation (%)</th>
+                                <th>LOI</th>
+                                <th>SEE Level</th>
+                                <th>Direct Attainment</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
+                        </thead>
+                        <tbody>
+                            {coList.map(co => {
+                                const coKey = `CO${Number(co) + 1}`;
+                                const subjectiveData = printData.directAttainments.subjective[coKey];
+                                const objectiveData = printData.directAttainments.objective[co];
+                                const assignmentData = printData.directAttainments.assignment[co];
+                                const presentationData = printData.directAttainments.presentation[coKey];
+                                const seeLevelData = printData.directAttainments.seeLevel[co];
+                                const overallData = printData.directAttainments.overall[co];
 
-    const renderIndirectAttainments = () => (
-        <div>
-            <h5>Indirect Attainments</h5>
-            <div className="table-responsive mt-3">
-                <table className="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>CO</th>
-                            <th>TLP Feedback (%)</th>
-                            <th>LOI</th>
-                            <th>Course End Survey (%)</th>
-                            <th>LOI</th>
-                            <th>Indirect Attainment Level (%)</th>
-                            <th>LOI</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {printData?.indirectAttainments?.overallIndirectAttainment?.coLevels && Object.keys(printData.indirectAttainments.overallIndirectAttainment.coLevels).map(co => (
-                            <tr key={co}>
-                                <td>{co}</td>
-                                <td>{printData.indirectAttainments.tlpFeedback.averagePercentage?.toFixed(2) || '-'}</td>
-                                <td>{printData.indirectAttainments.tlpFeedback.lois[co] || '-'}</td>
-                                <td>{printData.indirectAttainments.courseEndSurvey.coPercentages[co]?.toFixed(2) || '-'}</td>
-                                <td>{printData.indirectAttainments.courseEndSurvey.lois[co] || '-'}</td>
-                                <td>{printData.indirectAttainments.overallIndirectAttainment.coLevels[co]}</td>
-                                <td>{printData.indirectAttainments.overallIndirectAttainment.lois[co]}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                return (
+                                    <tr key={co}>
+                                        <td>{coKey}</td>
+                                        <td>{subjectiveData?.percentage !== null && subjectiveData?.percentage !== undefined ? subjectiveData.percentage.toFixed(2) : '-'}</td>
+                                        <td>{subjectiveData?.loi !== null && subjectiveData?.loi !== undefined ? subjectiveData.loi : '-'}</td>
+                                        <td>{objectiveData?.percentage !== null && objectiveData?.percentage !== undefined ? objectiveData.percentage.toFixed(2) : '-'}</td>
+                                        <td>{objectiveData?.loi !== null && objectiveData?.loi !== undefined ? objectiveData.loi : '-'}</td>
+                                        <td>{assignmentData?.percentage !== null && assignmentData?.percentage !== undefined ? assignmentData.percentage.toFixed(2) : '-'}</td>
+                                        <td>{assignmentData?.loi !== null && assignmentData?.loi !== undefined ? assignmentData.loi : '-'}</td>
+                                        <td>{presentationData?.percentage !== null && presentationData?.percentage !== undefined ? presentationData.percentage.toFixed(2) : '-'}</td>
+                                        <td>{presentationData?.loi !== null && presentationData?.loi !== undefined ? presentationData.loi : '-'}</td>
+                                        <td>{seeLevelData?.level !== null && seeLevelData?.level !== undefined ? seeLevelData.level.toFixed(2) : '-'}</td>
+                                        <td>{overallData?.level !== null && overallData?.level !== undefined ? overallData.level.toFixed(2) : '-'}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
-    const renderOverallAttainment = () => (
-        <div>
-            <h5>Overall Attainment</h5>
-            <div className="table-responsive mt-3">
-                <table className="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>CO</th>
-                            <th>Statement</th>
-                            <th>Direct Attainment (%)</th>
-                            <th>Indirect Attainment (%)</th>
-                            <th>Overall Attainment (%)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {printData?.overallAttainment && Object.keys(printData.overallAttainment).map(co => (
-                            <tr key={co}>
-                                <td>{co}</td>
-                                <td>{printData.coStatements[co] || '-'}</td>
-                                <td>{printData.directAttainments.overallDirectAttainment.coLevels[co]}</td>
-                                <td>{printData.indirectAttainments.overallIndirectAttainment.coLevels[co]}</td>
-                                <td>{printData.overallAttainment[co]?.toFixed(2)}</td>
+    const renderIndirectAttainments = () => {
+        if (!printData?.indirectAttainments?.overall) return null;
+
+        const coList = Object.keys(printData.indirectAttainments.overall);
+
+        return (
+            <div>
+                <h5>Indirect Attainments</h5>
+                <div className="table-responsive mt-3">
+                    <table className="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>CO</th>
+                                <th>TLP Feedback (%)</th>
+                                <th>LOI</th>
+                                <th>Course End Survey (%)</th>
+                                <th>LOI</th>
+                                <th>Indirect Attainment</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {coList.map(co => {
+                                const cesData = printData.indirectAttainments.ces[co];
+                                const overallIndirectLOI = printData.indirectAttainments.overall[co];
+
+                                return (
+                                    <tr key={co}>
+                                        <td>{co}</td>
+                                        <td>{printData.indirectAttainments.tlp?.percentage !== null && printData.indirectAttainments.tlp?.percentage !== undefined ? printData.indirectAttainments.tlp.percentage.toFixed(2) : '-'}</td>
+                                        <td>{printData.indirectAttainments.tlp?.loi !== null && printData.indirectAttainments.tlp?.loi !== undefined ? printData.indirectAttainments.tlp.loi : '-'}</td>
+                                        <td>{cesData?.percentage !== null && cesData?.percentage !== undefined ? cesData.percentage.toFixed(2) : '-'}</td>
+                                        <td>{cesData?.loi !== null && cesData?.loi !== undefined ? cesData.loi : '-'}</td>
+                                        <td>{overallIndirectLOI !== null && overallIndirectLOI !== undefined ? overallIndirectLOI : '-'}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
-    const renderCoPoMapping = () => (
-        <div>
-            <h5>CO-PO Mapping</h5>
-            <div className="table-responsive mt-3">
-                <table className="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>CO</th>
-                            {printData?.coPoMapping?.mapping?.[0] && Object.keys(printData.coPoMapping.mapping[0])
-                                .filter(key => key.startsWith('PO'))
-                                .map(po => <th key={po}>{po}</th>)}
-                            <th>Average</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {printData?.coPoMapping?.mapping?.map(coMap => (
-                            <tr key={coMap.co}>
-                                <td>{coMap.co}</td>
-                                {Object.keys(coMap)
-                                    .filter(key => key.startsWith('PO'))
-                                    .map(po => <td key={po}>{coMap[po]}</td>)}
-                                <td>{(Object.keys(coMap)
-                                    .filter(key => key.startsWith('PO'))
-                                    .reduce((sum, po) => sum + parseInt(coMap[po] || 0), 0) /
-                                    Object.keys(coMap).filter(key => key.startsWith('PO')).length).toFixed(2) || '-'}</td>
+    const renderOverallAttainment = () => {
+        if (!printData?.coAttainmentTable) return null;
+        return (
+            <div>
+                <h5>Overall Attainment</h5>
+                <div className="table-responsive mt-3">
+                    <table className="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>CO</th>
+                                <th>Statement</th>
+                                <th>Direct Attainment</th>
+                                <th>Indirect Attainment (LOI)</th>
+                                <th>Overall Attainment</th>
                             </tr>
-                        ))}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <th>Average</th>
-                            {printData?.coPoMapping?.poAverages && Object.keys(printData.coPoMapping.poAverages).map(po => (
-                                <th key={po}>{printData.coPoMapping.poAverages[po]?.toFixed(2) || '-'}</th>
+                        </thead>
+                        <tbody>
+                            {printData.coAttainmentTable.map(coData => (
+                                <tr key={coData.coNumber}>
+                                    <td>{coData.coNumber}</td>
+                                    <td>{coData.statement}</td>
+                                    <td>{coData.directAttainment !== null && coData.directAttainment !== undefined ? coData.directAttainment.toFixed(2) : '-'}</td>
+                                    <td>{coData.indirectAttainment !== null && coData.indirectAttainment !== undefined ? coData.indirectAttainment : '-'}</td>
+                                    <td>{coData.overallAttainment !== null && coData.overallAttainment !== undefined ? coData.overallAttainment.toFixed(2) : '-'}</td>
+                                </tr>
                             ))}
-                            <th>-</th>
-                        </tr>
-                    </tfoot>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
-    const renderPoAttainments = () => (
-        <div>
-            <h5>PO Attainments</h5>
-            <div className="mb-2">
-                <label>Target PO Attainment:</label>
-                <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={targetPoAttainment}
-                    onChange={handleTargetPoAttainmentChange}
-                    style={{ width: '100px', display: 'inline-block', marginLeft: '10px' }}
-                />
-            </div>
-            <div className="table-responsive mt-3">
-                <table className="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>PO</th>
-                            <th>Attainment Level (%)</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {printData?.coPoMapping?.poAverages && Object.keys(printData.coPoMapping.poAverages).map(po => (
-                            <tr key={po}>
-                                <td>{po}</td>
-                                <td>{printData.coPoMapping.poAverages[po]?.toFixed(2) || '-'}</td>
-                                <td style={{
-                                    color: targetPoAttainment && printData.coPoMapping.poAverages[po] < parseFloat(targetPoAttainment)
-                                        ? 'red'
-                                        : 'green'
-                                }}>
-                                    {targetPoAttainment
-                                        ? printData.coPoMapping.poAverages[po] >= parseFloat(targetPoAttainment)
-                                            ? 'Reached'
-                                            : 'Not Reached'
-                                        : '-'}
-                                </td>
+    const renderCoPoMapping = () => {
+        if (!printData?.coPoMapping) return null;
+        const poKeys = printData.coPoMapping[0] ? Object.keys(printData.coPoMapping[0]).filter(key => key.startsWith('po') || key.startsWith('pso')) : [];
+
+        return (
+            <div>
+                <h5>CO-PO Mapping</h5>
+                <div className="table-responsive mt-3">
+                    <table className="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>CO</th>
+                                {poKeys.map(po => <th key={po}>{po.toUpperCase()}</th>)}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {printData.coPoMapping.map(coMap => (
+                                <tr key={coMap.coNumber}>
+                                    <td>{coMap.coNumber}</td>
+                                    {poKeys.map(po => (
+                                        <td key={po}>{coMap[po] || '-'}</td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                        {printData.coPoColumnAverages && Object.keys(printData.coPoColumnAverages).length > 0 && (
+                            <tfoot>
+                                <tr>
+                                    <th>Average</th>
+                                    {poKeys.map(po => (
+                                        <th key={po}>{printData.coPoColumnAverages[po]?.toFixed(2) || '-'}</th>
+                                    ))}
+                                </tr>
+                            </tfoot>
+                        )}
+                    </table>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
+
+    const renderPoAttainments = () => {
+        if (!printData?.poAttainments) return null;
+        return (
+            <div>
+                <h5>PO Attainments</h5>
+                <div className="mb-2">
+                    <label>Target PO Attainment:</label>
+                    <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        value={targetPoAttainment}
+                        onChange={handleTargetPoAttainmentChange}
+                        style={{ width: '100px', display: 'inline-block', marginLeft: '10px' }}
+                    />
+                </div>
+                <div className="table-responsive mt-3">
+                    <table className="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>PO</th>
+                                <th>Attainment Level</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Object.keys(printData.poAttainments).map(po => {
+                                const attainmentValue = printData.poAttainments[po];
+                                const statusColor = targetPoAttainment && attainmentValue < parseFloat(targetPoAttainment) ? 'red' : 'green';
+                                const statusText = targetPoAttainment
+                                    ? attainmentValue >= parseFloat(targetPoAttainment)
+                                        ? 'Reached'
+                                        : 'Not Reached'
+                                    : '-';
+
+                                return (
+                                    <tr key={po}>
+                                        <td>{po.toUpperCase()}</td>
+                                        <td>{attainmentValue?.toFixed(2) || '-'}</td>
+                                        <td style={{ color: statusColor }}>
+                                            {statusText}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="regulation-form mt-4">
@@ -368,7 +535,7 @@ const PrintAttainment = () => {
                 <b>{loading ? 'Generating...' : 'Generate Report'}</b>
             </button>
 
-            {error && <div className="alert alert-danger mt-3">{error}</div>}
+            {error && <div className="alert alert-danger mt-3">Error: {error}</div>}
 
             {printData && (
                 <div className="mt-4">
@@ -378,7 +545,7 @@ const PrintAttainment = () => {
                     {renderCoPoMapping()}
                     {renderPoAttainments()}
                     <button className="submit-button mt-3" onClick={handleDownloadReport}>
-                        <b>Download Report</b>
+                        <b>Download as PDF</b>
                     </button>
                 </div>
             )}
